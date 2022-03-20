@@ -84,7 +84,8 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	h.ParentHash = *dec.ParentHash
 	if dec.UncleHash == nil {
-		return errors.New("missing required field 'sha3Uncles' for Header")
+		dec.UncleHash = new(common.Hash)
+		//return errors.New("missing required field 'sha3Uncles' for Header")
 	}
 	h.UncleHash = *dec.UncleHash
 	if dec.Coinbase == nil {
@@ -108,7 +109,8 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	h.Bloom = *dec.Bloom
 	if dec.Difficulty == nil {
-		return errors.New("missing required field 'difficulty' for Header")
+		dec.Difficulty = new(hexutil.Big)
+		//return errors.New("missing required field 'difficulty' for Header")
 	}
 	h.Difficulty = (*big.Int)(dec.Difficulty)
 	if dec.Number == nil {
@@ -116,7 +118,8 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	h.Number = (*big.Int)(dec.Number)
 	if dec.GasLimit == nil {
-		return errors.New("missing required field 'gasLimit' for Header")
+		dec.GasLimit = new(hexutil.Uint64)
+		//return errors.New("missing required field 'gasLimit' for Header")
 	}
 	h.GasLimit = uint64(*dec.GasLimit)
 	if dec.GasUsed == nil {
