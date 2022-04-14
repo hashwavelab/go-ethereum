@@ -354,21 +354,20 @@ var tracerString = `
       var r = {topics:[]};
       r.address = this.getAddr(l);
       for (var i=0; i<ll; i++) r.topics.push(l.stack.peek(2+i).toString(16));
-      r.data = this.array2Hex(l.memory.slice(parseInt(l.stack.peek(0).toString(10)),(parseInt(l.stack.peek(0).toString(10)) + parseInt(l.stack.peek(1).toString(10)))));
+	  var start = parseInt(l.stack.peek(0).toString(10));
+      var len = parseInt(l.stack.peek(1).toString(10));
+      r.data = this.array2Hex(l.memory.slice(start,start+len));
       this.res.push(r);
     }
   },
 
-  fault: function(log,db) {this.retVal.push("FAULT: " + JSON.stringify(log))},
+  fault: function(log,db) {this.res.push("FAULT: " + JSON.stringify(log))},
   result: function(ctx,db) {return this.res}
 }
 `
 
-func toTraceOptions() interface{} {
-	arg := map[string]interface{}{
-		"tracer": tracerString,
-	}
-	return arg
+var defaultTraceOps = map[string]interface{}{
+	"tracer": tracerString,
 }
 
 type SimulatedRawLogs []struct {
@@ -377,13 +376,44 @@ type SimulatedRawLogs []struct {
 	Data    string   `json:"data" gencodec:"required"`
 }
 
-func (ec *Client) TraceCall(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	var hex hexutil.Bytes
-	err := ec.c.CallContext(ctx, &hex, "debug_traceCall", toCallArg(msg), toBlockNumArg(blockNumber), toTraceOptions())
+type SimulatedLog struct {
+	Address    common.Address
+	Topics     []common.Hash
+	DataHexStr string
+}
+
+func (ec *Client) TraceCall(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]SimulatedLog, error) {
+	//var rawLogs SimulatedRawLogs
+	var raw SimulatedRawLogs
+	err := ec.c.CallContext(ctx, &raw, "debug_traceCall", toCallArg(msg), toBlockNumArg(blockNumber), defaultTraceOps)
 	if err != nil {
 		return nil, err
 	}
-	return hex, nil
+	return toSimulatedLog(raw)
+}
+
+func (ec *Client) TraceTransaction(ctx context.Context, hash common.Hash) ([]SimulatedLog, error) {
+	var raw SimulatedRawLogs
+	err := ec.c.CallContext(ctx, &raw, "debug_traceTransaction", hash, defaultTraceOps)
+	if err != nil {
+		return nil, err
+	}
+	return toSimulatedLog(raw)
+}
+
+func toSimulatedLog(r SimulatedRawLogs) ([]SimulatedLog, error) {
+	res := make([]SimulatedLog, len(r))
+	for i := 0; i < len(r); i++ {
+		res[i] = SimulatedLog{
+			Address:    common.HexToAddress("0x" + r[i].Address),
+			Topics:     make([]common.Hash, len(r[i].Topics)),
+			DataHexStr: "0x" + r[i].Data,
+		}
+		for j := 0; j < len(r[i].Topics); j++ {
+			res[i].Topics[j] = common.HexToHash("0x" + r[i].Topics[j])
+		}
+	}
+	return res, nil
 }
 
 // State Access
