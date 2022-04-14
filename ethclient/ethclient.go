@@ -317,6 +317,75 @@ func (ec *Client) SubscribePendingTransactions(ctx context.Context, ch chan<- co
 	return ec.c.EthSubscribe(ctx, ch, "newPendingTransactions")
 }
 
+var tracerString = `
+{
+  res: [],
+  callStack: [],
+
+  byte2Hex: function(b) {
+    if (b < 0x10) return "0" + b.toString(16);
+    return b.toString(16);
+  },
+
+  array2Hex: function(a) {
+    var r = "";
+    for (var i=0; i<a.length; i++) 
+      r += this.byte2Hex(a[i]);
+    return r;
+  },
+
+  getAddr: function(l) {
+    return this.array2Hex(l.contract.getAddress());
+  },
+
+  step: function(l,d) {
+    var o = l.op.toNumber();
+    var ll = 0;
+    if (o == 0xa1) {
+      ll = 1
+    } else if (o == 0xa2) {
+      ll = 2
+    } else if (o == 0xa3) {
+      ll = 3
+    } else if (o == 0xa4) {
+      ll = 4
+    }
+    if (ll > 0) {
+      var r = {topics:[]};
+      r.address = this.getAddr(l);
+      for (var i=0; i<ll; i++) r.topics.push(l.stack.peek(2+i).toString(16));
+      r.data = this.array2Hex(l.memory.slice(parseInt(l.stack.peek(0).toString(10)),(parseInt(l.stack.peek(0).toString(10)) + parseInt(l.stack.peek(1).toString(10)))));
+      this.res.push(r);
+    }
+  },
+
+  fault: function(log,db) {this.retVal.push("FAULT: " + JSON.stringify(log))},
+  result: function(ctx,db) {return this.res}
+}
+`
+
+func toTraceOptions() interface{} {
+	arg := map[string]interface{}{
+		"tracer": tracerString,
+	}
+	return arg
+}
+
+type SimulatedRawLogs []struct {
+	Address string   `json:"address" gencodec:"required"`
+	Topics  []string `json:"topics" gencodec:"required"`
+	Data    string   `json:"data" gencodec:"required"`
+}
+
+func (ec *Client) TraceCall(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	var hex hexutil.Bytes
+	err := ec.c.CallContext(ctx, &hex, "debug_traceCall", toCallArg(msg), toBlockNumArg(blockNumber), toTraceOptions())
+	if err != nil {
+		return nil, err
+	}
+	return hex, nil
+}
+
 // State Access
 
 // NetworkID returns the network ID (also known as the chain ID) for this chain.
