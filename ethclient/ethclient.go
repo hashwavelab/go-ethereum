@@ -338,6 +338,13 @@ var tracerString = `
     return this.array2Hex(l.contract.getAddress());
   },
 
+  getBytesArr: function(a) {
+	var r = [];
+	for (var i=0; i<a.length; i++) 
+      r.push(a[i]);
+    return r;
+  },
+
   step: function(l,d) {
     var o = l.op.toNumber();
     var ll = 0;
@@ -356,7 +363,7 @@ var tracerString = `
       for (var i=0; i<ll; i++) r.topics.push(l.stack.peek(2+i).toString(16));
 	  var start = parseInt(l.stack.peek(0).toString(10));
       var len = parseInt(l.stack.peek(1).toString(10));
-      r.data = this.array2Hex(l.memory.slice(start,start+len));
+      r.data = this.getBytesArr(l.memory.slice(start,start+len));
       this.res.push(r);
     }
   },
@@ -373,13 +380,13 @@ var defaultTraceOps = map[string]interface{}{
 type SimulatedRawLogs []struct {
 	Address string   `json:"address" gencodec:"required"`
 	Topics  []string `json:"topics" gencodec:"required"`
-	Data    string   `json:"data" gencodec:"required"`
+	Data    []byte   `json:"data" gencodec:"required"`
 }
 
 type SimulatedLog struct {
-	Address    common.Address
-	Topics     []common.Hash
-	DataHexStr string
+	Address common.Address
+	Topics  []common.Hash
+	Data    []byte
 }
 
 func (ec *Client) TraceCall(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]SimulatedLog, error) {
@@ -405,9 +412,9 @@ func toSimulatedLog(r SimulatedRawLogs) ([]SimulatedLog, error) {
 	res := make([]SimulatedLog, len(r))
 	for i := 0; i < len(r); i++ {
 		res[i] = SimulatedLog{
-			Address:    common.HexToAddress("0x" + r[i].Address),
-			Topics:     make([]common.Hash, len(r[i].Topics)),
-			DataHexStr: "0x" + r[i].Data,
+			Address: common.HexToAddress("0x" + r[i].Address),
+			Topics:  make([]common.Hash, len(r[i].Topics)),
+			Data:    r[i].Data,
 		}
 		for j := 0; j < len(r[i].Topics); j++ {
 			res[i].Topics[j] = common.HexToHash("0x" + r[i].Topics[j])
