@@ -286,6 +286,17 @@ func (ec *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*
 	return r, err
 }
 
+func (ec *Client) OptimismTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.OptimismReceipt, error) {
+	var r *types.OptimismReceipt
+	err := ec.c.CallContext(ctx, &r, "eth_getTransactionReceipt", txHash)
+	if err == nil {
+		if r == nil {
+			return nil, ethereum.NotFound
+		}
+	}
+	return r, err
+}
+
 // SyncProgress retrieves the current progress of the sync algorithm. If there's
 // no sync currently running, it returns nil.
 func (ec *Client) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, error) {

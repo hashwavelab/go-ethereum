@@ -71,6 +71,13 @@ type Receipt struct {
 	TransactionIndex uint        `json:"transactionIndex"`
 }
 
+type OptimismReceipt struct {
+	Receipt
+
+	// op fields
+	L1Fee *big.Int `json:"l1Fee,omitempty"`
+}
+
 type receiptMarshaling struct {
 	Type              hexutil.Uint64
 	PostState         hexutil.Bytes
