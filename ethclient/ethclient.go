@@ -340,7 +340,7 @@ var tracerString = `
 
   array2Hex: function(a) {
     var r = "";
-    for (var i=0; i<a.length; i++) 
+    for (var i=0; i<a.length; i++)
       r += this.byte2Hex(a[i]);
     return r;
   },
@@ -351,7 +351,7 @@ var tracerString = `
 
   getBytesArr: function(a) {
 	var r = [];
-	for (var i=0; i<a.length; i++) 
+	for (var i=0; i<a.length; i++)
       r.push(a[i]);
     return r;
   },
@@ -432,6 +432,67 @@ func toSimulatedLog(r SimulatedRawLogs) ([]SimulatedLog, error) {
 		}
 	}
 	return res, nil
+}
+
+var traceWithLogOps = map[string]interface{}{
+	"tracer": "callTracer",
+	"tracerConfig": map[string]interface{}{
+		"withLog": true,
+	},
+}
+
+type TraceCallRaw struct {
+	Type    string             `json:"type" gencodec:"required"`
+	From    string             `json:"from" gencodec:"required"`
+	To      string             `json:"to" gencodec:"required"`
+	Value   string             `json:"value" gencodec:"required"`
+	Gas     string             `json:"gas" gencodec:"required"`
+	GasUsed string             `json:"gasUsed" gencodec:"required"`
+	Input   string             `json:"input" gencodec:"required"`
+	Output  string             `json:"output" gencodec:"required"`
+	Logs    []*TraceCallRawLog `json:"logs" gencodec:"required"`
+	Calls   []TraceCallRaw     `json:"calls" gencodec:"required"`
+}
+
+type TraceCallRawLog struct {
+	Address common.Address `json:"address" gencodec:"required"`
+	Topics  []common.Hash  `json:"topics" gencodec:"required"`
+	Data    string         `json:"data" gencodec:"required"`
+}
+
+func (t TraceCallRaw) ToSimulatedLogs() []SimulatedLog {
+	return toSimulatedLogs(t)
+}
+
+func toSimulatedLogs(call TraceCallRaw) []SimulatedLog {
+	var logs []SimulatedLog
+
+	// Recursively append the logs for each nested call
+	for _, call := range call.Calls {
+		logs = append(logs, toSimulatedLogs(call)...)
+	}
+
+	for _, log := range call.Logs {
+		logs = append(logs, SimulatedLog{
+			Address: log.Address,
+			Topics:  log.Topics,
+			Data:    common.FromHex(log.Data),
+		})
+	}
+
+	return logs
+}
+
+func (ec *Client) TraceCallWithLog(
+	ctx context.Context,
+	msg ethereum.CallMsg,
+	blockNumber *big.Int,
+) (raw TraceCallRaw, err error) {
+	err = ec.c.CallContext(ctx, &raw, "debug_traceCall", toCallArg(msg), toBlockNumArg(blockNumber), traceWithLogOps)
+	if err != nil {
+		return TraceCallRaw{}, err
+	}
+	return raw, nil
 }
 
 // State Access
