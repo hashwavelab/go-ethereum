@@ -744,6 +744,12 @@ func toCallArg(msg ethereum.CallMsg) interface{} {
 	if msg.GasPrice != nil {
 		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
 	}
+
+	// dirty bump
+	if msg.Gas == 0 {
+		arg["gas"] = hexutil.Uint64(4294967295)
+	}
+
 	return arg
 }
 
